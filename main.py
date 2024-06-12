@@ -1,8 +1,11 @@
-import time 
+import time
 from collections import deque
 import os
 from tqdm import tqdm
 import json
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 # Define the solved state
 SOLVED_STATE = "YYYYBBBBRRRRGGGGOOOOWWWW"
@@ -182,41 +185,59 @@ def solve_dp(state, dp):
     canonical_state = canonical_form(state)
     return dp.get(canonical_state, None)
 
+def convert_to_minutes(seconds):
+    minutes = seconds / 60
+    return minutes
 
-# Example usage
-initial_state = "YYYYBBBBRRRRGGGGOOOOWWWW"
+def solve_backtrack(scrambled_state_backtrack, max_depth, backtrack_time: list):
+    print("-------------------- Backtrack -------------------")
+    # Solve the scrambled cube
+    # max_depth = 6 # Adjust based on the complexity of the scramble
+    start_backtrack = time.time()
+    solution_backtrack = solve_cube_backtrack(scrambled_state_backtrack, 0, max_depth, [])
+    end_backtrack = time.time()
+    print("Solution backtrack:", solution_backtrack, "With max_depth = ", max_depth)
+    print("Backtrack Time: ", (end_backtrack - start_backtrack))
 
-# Scramble the cube
-# scrambled_state = apply_move(initial_state, "D")
-scrambled_state = apply_move(initial_state, "U2")
-# scrambled_state = apply_move(scrambled_state, "L")
-scrambled_state = apply_move(scrambled_state, "R")
-scrambled_state = apply_move(scrambled_state, "B'")
-# scrambled_state = apply_move(scrambled_state, "L'")
-scrambled_state = apply_move(scrambled_state, "F2")
-scrambled_state = apply_move(scrambled_state, "R")
-print("Scrambled state:", scrambled_state)
-scrambled_state_backtrack = scrambled_state
-scrambled_state_dp = scrambled_state
+    # print final state after applying moves in solution_backtrack
+    print("initial state backtrack:", scrambled_state_backtrack)
+    for move in solution_backtrack:
+        scrambled_state_backtrack = apply_move(scrambled_state_backtrack, move)
+    print("final state backtrack:", scrambled_state_backtrack)
+    backtrack_time.append((end_backtrack - start_backtrack))
+    return backtrack_time
 
-print("-------------------- Backtrack -------------------")
-# Solve the scrambled cube
-max_depth = 5 # Adjust based on the complexity of the scramble
-start_backtrack = time.time()
-solution_backtrack = solve_cube_backtrack(scrambled_state_backtrack, 0, max_depth, [])
-end_backtrack = time.time()
-print("Solution backtrack:", solution_backtrack)
-print("Backtrack Time: ", (end_backtrack - start_backtrack))
+def solve_dynamic_programming(scrambled_state_dp, dp_time):
+    print("-------------------- Dynamic Programming -------------------")
+    # Solve the scrambled cube using the precomputed DP table
+    start_dp = time.time()
+    solution_dp = solve_dp(scrambled_state_dp, dp)
+    end_dp = time.time()
 
-# print final state after applying moves in solution_backtrack
-print("initial state backtrack:", scrambled_state_backtrack)
-for move in solution_backtrack:
-    scrambled_state_backtrack = apply_move(scrambled_state_backtrack, move)
-print("final state backtrack:", scrambled_state_backtrack)
+    # change the order of moves, and change move in solution_dp to reverse move
+    solution_dp = solution_dp[::-1]
+    for move in solution_dp:
+        solution_dp[solution_dp.index(move)] = REVERSE_MOVES[move]
 
+    print("Solution DP:", solution_dp)
+    print("DP Time: ", (end_dp - start_dp))
+    print("initial state DP:", scrambled_state_dp)
+    for move in solution_dp:
+        scrambled_state_dp = apply_move(scrambled_state_dp, move)
 
-print("-------------------- Dynamic Programming -------------------")
-# if there is dp in file with json extension then load it, else compute it
+    print("final state DP:", scrambled_state_dp)
+    dp_time.append((end_dp - start_dp))
+    return dp_time
+
+# if os.path.exists("dp.npz"):
+#     dp = dict(np.load("dp.npz"))
+# else:
+#     start_dp = time.time()
+#     dp = precompute_states()
+#     end_dp = time.time()
+#     print("DP Time: ", (end_dp - start_dp))
+#     np.savez("dp.npz", **dp)
+
 if os.path.exists("dp.json"):
     with open("dp.json") as f:
         dp = json.load(f)
@@ -228,20 +249,65 @@ else:
     with open("dp.json", "w") as f:
         json.dump(dp, f)
 
-# Solve the scrambled cube using the precomputed DP table
-start_dp = time.time()
-solution_dp = solve_dp(scrambled_state_dp, dp)
-end_dp = time.time()
+# time array
+backtrack_time = list()
+dp_time = list()
 
-# change the order of moves, and change move in solution_dp to reverse move
-solution_dp = solution_dp[::-1]
-for move in solution_dp:
-    solution_dp[solution_dp.index(move)] = REVERSE_MOVES[move]
+# Example usage
+initial_state = "YYYYBBBBRRRRGGGGOOOOWWWW"
 
-print("Solution DP:", solution_dp)
-print("DP Time: ", (end_dp - start_dp))
-print("initial state DP:", scrambled_state_dp)
-for move in solution_dp:
-    scrambled_state_dp = apply_move(scrambled_state_dp, move)
 
-print("final state DP:", scrambled_state_dp)
+# Scramble the cube
+scrambled_state = apply_move(initial_state, "D2")
+backtrack_time = solve_backtrack(scrambled_state, 1, backtrack_time)
+dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+scrambled_state = apply_move(scrambled_state, "L2")
+scrambled_state = apply_move(scrambled_state, "R")
+backtrack_time = solve_backtrack(scrambled_state, 3, backtrack_time)
+dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+scrambled_state = apply_move(scrambled_state, "B'")
+scrambled_state = apply_move(scrambled_state, "L'")
+backtrack_time = solve_backtrack(scrambled_state, 5, backtrack_time)
+dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+scrambled_state = apply_move(scrambled_state, "F2")
+backtrack_time = solve_backtrack(scrambled_state, 6, backtrack_time)
+dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+scrambled_state = apply_move(scrambled_state, "R2")
+backtrack_time = solve_backtrack(scrambled_state, 7, backtrack_time)
+dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+# scrambled_state = apply_move(scrambled_state, "F2")
+# scrambled_state = apply_move(scrambled_state, "L2")
+# backtrack_time = solve_backtrack(scrambled_state, 10, backtrack_time)
+# dp_time = solve_dynamic_programming(scrambled_state, dp_time)
+
+# draw graph
+# data
+backtrack_data_time = pd.DataFrame({
+    'x_axis': [1, 3, 5, 6, 7],
+    'y_axis': backtrack_time
+})
+
+dp_data_time = pd.DataFrame({
+    'x_axis': [1, 3, 5, 6, 7],
+    'y_axis': dp_time
+})
+
+
+# show graph
+plt.plot(backtrack_data_time['x_axis'], backtrack_data_time['y_axis'], label='Backtrack')
+plt.plot(dp_data_time['x_axis'], dp_data_time['y_axis'], label='Dynamic Programming')
+plt.legend()
+plt.show()
+
+plt.plot(backtrack_data_time['x_axis'], backtrack_data_time['y_axis'], label='Backtrack')
+plt.plot(dp_data_time['x_axis'], dp_data_time['y_axis'], label='Dynamic Programming')
+plt.xlabel('Scramble Depth')
+plt.ylabel('Time (seconds)')
+plt.title('Time vs Scramble Depth')
+plt.legend()
+plt.show()
